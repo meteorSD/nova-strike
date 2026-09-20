@@ -166,7 +166,10 @@ vagues, surchauffe, score/record, pause, son synthétisé, aucune erreur JS).
 
 | Vérification | Résultat |
 |---|---|
-| `test-v2.js` — critères A1→A14 | **40/40** tests passés, **0** erreur JS, **0** requête échouée |
+| `test-v2.js` — critères A1→A14, en local **et sur la prod** | **40/40** tests passés, **0** erreur JS, **0** requête échouée |
+| `live-check.js` — partie réelle de 18 s sur la prod (hooks, ennemis, radar, CSS déployé) | **7/7** |
 | `mobile-check.js` — 390×844, 820×1180, 1366×768, 1920×1080, 2560×1080 | **0** chevauchement, **0** hors-écran, **0** cible tactile < 40 px |
 | Rendu (captures desktop + mobile) | 3D non noir, HUD lisible, radar et commandes tactiles dégagés |
-| Bugs trouvés et corrigés pendant les tests | 1) un railgun touchait 2× le même ennemi (face avant + arrière) ; 2) le HUD mobile chevauchait les commandes tactiles ; 3) les tirs traversaient les murs de l'arène ; 4) le boss était inoffensif au corps-à-corps |
+| Bugs trouvés et corrigés pendant les tests | 1) un railgun touchait 2× le même ennemi (face avant + arrière) ; 2) le HUD mobile chevauchait les commandes tactiles ; 3) les tirs traversaient les murs de l'arène ; 4) le boss était inoffensif au corps-à-corps ; 5) boutons du HUD translucides donc illisibles sur une scène claire |
+
+Livré sur `main` (GitHub Pages) : commits `78d7ad7` → `ed075a8` → `84158d7`.
