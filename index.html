@@ -2,7 +2,8 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2303030a'/%3E%3Cpath d='M16 5l3 8h8l-6.5 5 2.5 8-7-5-7 5 2.5-8L5 13h8z' fill='%2333fff0'/%3E%3C/svg%3E" />
 <title>NOVA STRIKE — Arena Shooter 3D</title>
 <style>
   :root{
@@ -10,6 +11,7 @@
     --magenta:#ff2fd6;
     --yellow:#fff23a;
     --red:#ff3b4e;
+    --green:#0fe08a;
     --bg:#03030a;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
@@ -19,6 +21,8 @@
     font-family:'Segoe UI', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing:antialiased;
     cursor:default;
+    touch-action:none;
+    -webkit-user-select:none; user-select:none;
   }
   #app{position:fixed; inset:0;}
   canvas#scene{display:block; width:100%; height:100%; outline:none;}
@@ -33,6 +37,10 @@
   .bar-wrap{
     position:absolute; left:22px; bottom:22px;
     width:260px; display:flex; flex-direction:column; gap:8px;
+    padding:9px 11px; border-radius:11px;
+    background:linear-gradient(180deg, rgba(4,7,17,.5), rgba(4,7,17,.34));
+    border:1px solid rgba(51,255,240,.12);
+    backdrop-filter:blur(2px);
   }
   .bar-label{
     font-size:11px; letter-spacing:2px; color:#9df7ee; text-transform:uppercase;
@@ -52,6 +60,9 @@
   #health-fill.low{background:linear-gradient(90deg,#ff3b4e,#ff8b3b); box-shadow:0 0 12px #ff3b4e;}
   #heat-fill{background:linear-gradient(90deg,#ff2fd6,#fff23a);}
   #heat-fill.hot{background:#ff3b4e; box-shadow:0 0 14px #ff3b4e;}
+  #dash-fill{background:linear-gradient(90deg,#4a6cff,#33fff0);}
+  #dash-fill.ready{box-shadow:0 0 12px #33fff0;}
+  .bar-track.small{height:8px;}
 
   #top-right{
     position:absolute; top:22px; right:26px; text-align:right;
@@ -60,10 +71,72 @@
   #score{font-size:30px; font-weight:700; letter-spacing:1px;}
   #wave-info{font-size:13px; letter-spacing:2px; color:var(--yellow); margin-top:4px; text-shadow:0 0 8px rgba(255,242,58,.6);}
   #enemies-left{font-size:12px; letter-spacing:1px; color:#9df7ee; margin-top:2px;}
+  #radar{
+    display:block; margin-top:10px; margin-left:auto;
+    width:150px; height:150px; border-radius:6px;
+    border:1px solid rgba(51,255,240,.35);
+    background:rgba(6,10,20,.72);
+    box-shadow:0 0 18px rgba(51,255,240,.18);
+  }
 
   #mute-indicator{
     position:absolute; top:24px; left:26px; font-size:12px; letter-spacing:2px;
     color:#9df7ee; opacity:.75;
+  }
+  #kill-feed{
+    position:absolute; top:48px; left:26px;
+    display:flex; flex-direction:column; gap:4px; align-items:flex-start;
+  }
+  .kill-entry{
+    font-size:12px; letter-spacing:1.5px; color:#eafffb;
+    background:rgba(6,10,20,.55); border-left:2px solid var(--cyan);
+    padding:3px 9px; border-radius:3px;
+    animation:killIn .18s ease;
+  }
+  .kill-entry .m{color:var(--yellow); font-weight:700;}
+  .kill-entry.fade{opacity:0; transition:opacity .4s ease;}
+  @keyframes killIn{ from{transform:translateX(-12px); opacity:0;} to{transform:none; opacity:1;} }
+
+  /* combo */
+  #combo-wrap{
+    position:absolute; top:20px; left:50%; transform:translateX(-50%);
+    text-align:center; opacity:0; transition:opacity .2s ease;
+  }
+  #combo-wrap.show{opacity:1;}
+  #combo-mult{
+    font-size:26px; font-weight:800; letter-spacing:2px; color:var(--yellow);
+    text-shadow:0 0 14px var(--yellow);
+  }
+  #combo-bar-track{width:120px; height:5px; margin:5px auto 0; background:rgba(255,255,255,.14); border-radius:3px; overflow:hidden;}
+  #combo-bar{height:100%; width:100%; background:linear-gradient(90deg,var(--yellow),var(--magenta));}
+
+  /* boss bar */
+  #boss-wrap{
+    position:absolute; top:22px; left:50%; transform:translateX(-50%);
+    width:min(420px,52vw); display:none; text-align:center;
+  }
+  #boss-wrap.show{display:block;}
+  #boss-name{font-size:11px; letter-spacing:4px; color:var(--magenta); text-shadow:0 0 10px var(--magenta); margin-bottom:4px;}
+  #boss-track{height:12px; border:1px solid rgba(255,47,214,.5); background:rgba(10,12,24,.6); border-radius:3px; overflow:hidden;}
+  #boss-fill{height:100%; width:100%; background:linear-gradient(90deg,var(--red),var(--magenta)); box-shadow:0 0 12px var(--magenta);}
+
+  /* weapon slots */
+  #weapon-slots{
+    position:absolute; right:26px; bottom:26px;
+    display:flex; gap:10px; align-items:flex-end;
+  }
+  .slot{
+    width:88px; padding:7px 6px 6px; text-align:center;
+    border:1px solid rgba(255,255,255,.22); border-radius:5px;
+    background:rgba(8,12,24,.55); color:#8fb8b4;
+    font-size:10px; letter-spacing:1.5px;
+    transition:all .15s ease;
+  }
+  .slot .k{display:block; font-size:9px; opacity:.6; margin-bottom:2px;}
+  .slot.active{
+    color:#fff; border-color:var(--cyan);
+    box-shadow:0 0 16px rgba(51,255,240,.4), inset 0 0 12px rgba(51,255,240,.12);
+    transform:translateY(-3px);
   }
 
   /* crosshair */
@@ -80,6 +153,7 @@
   #crosshair .v{width:2px; height:9px; left:12px;}
   #crosshair .v.t{top:0;} #crosshair .v.b{bottom:0;}
   #crosshair.hit .line{background:var(--yellow); box-shadow:0 0 10px var(--yellow);}
+  #crosshair.kill .line{background:var(--red); box-shadow:0 0 12px var(--red);}
 
   /* damage / hit flashes */
   #damage-flash{
@@ -118,6 +192,8 @@
     font-size:52px; font-weight:800; color:#fff; letter-spacing:2px;
     text-shadow:0 0 22px var(--cyan), 0 0 48px var(--cyan);
   }
+  #wave-banner.boss .t1{color:var(--red); text-shadow:0 0 16px var(--red);}
+  #wave-banner.boss .t2{text-shadow:0 0 22px var(--red), 0 0 48px var(--magenta);}
 
   /* ---------- Overlays ---------- */
   .overlay{
@@ -125,10 +201,11 @@
     display:flex; align-items:center; justify-content:center;
     background:radial-gradient(ellipse at center, rgba(10,12,30,.85) 0%, rgba(3,3,10,.96) 75%);
     backdrop-filter:blur(2px);
+    overflow-y:auto; padding:20px;
   }
   .overlay.hidden{display:none;}
   .panel{
-    text-align:center; color:#eafffb; max-width:560px; padding:20px;
+    text-align:center; color:#eafffb; max-width:600px; padding:20px;
   }
   .panel h1{
     font-size:clamp(34px,6vw,58px); letter-spacing:6px; font-weight:800;
@@ -142,7 +219,7 @@
     text-shadow:0 0 10px rgba(255,242,58,.6);
   }
   .instructions{
-    display:flex; flex-wrap:wrap; gap:10px 22px; justify-content:center;
+    display:flex; flex-wrap:wrap; gap:10px 18px; justify-content:center;
     margin-bottom:30px; font-size:13px; color:#9df7ee; letter-spacing:1px;
   }
   .instructions b{color:#fff; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.25);
@@ -160,16 +237,118 @@
   button.cta:active{transform:translateY(0);}
   button.cta.secondary{border-color:var(--magenta); text-shadow:0 0 10px var(--magenta); box-shadow:0 0 24px rgba(255,47,214,.25);}
   button.cta.secondary:hover{box-shadow:0 0 32px rgba(255,47,214,.45);}
+  button.cta.ghost{
+    border-color:rgba(255,255,255,.35); text-shadow:none; box-shadow:none;
+    background:rgba(255,255,255,.05); font-size:13px; padding:12px 26px;
+  }
+  button.cta.ghost:hover{box-shadow:0 0 18px rgba(255,255,255,.2);}
+  .btn-row{display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-top:8px;}
 
-  .stat-row{display:flex; justify-content:center; gap:42px; margin:22px 0 30px;}
-  .stat{text-align:center;}
-  .stat .num{font-size:32px; font-weight:800; color:#fff; text-shadow:0 0 12px var(--cyan);}
-  .stat .lab{font-size:11px; letter-spacing:2px; color:#9df7ee; margin-top:2px;}
+  .stat-row{display:flex; justify-content:center; gap:34px; margin:22px 0 26px; flex-wrap:wrap;}
+  .stat{text-align:center; min-width:74px;}
+  .stat .num{font-size:30px; font-weight:800; color:#fff; text-shadow:0 0 12px var(--cyan);}
+  .stat .lab{font-size:10px; letter-spacing:2px; color:#9df7ee; margin-top:2px;}
   .newbest{
     margin-top:-8px; margin-bottom:18px; font-size:13px; letter-spacing:3px;
     color:var(--yellow); text-shadow:0 0 12px var(--yellow); animation:blinkBest 1s infinite;
   }
   @keyframes blinkBest{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
+
+  /* ---------- Settings ---------- */
+  .settings-panel{
+    width:min(520px,92vw); text-align:left;
+    border:1px solid rgba(51,255,240,.3); border-radius:10px;
+    background:rgba(6,10,20,.85); padding:26px 28px;
+    box-shadow:0 0 40px rgba(51,255,240,.15);
+  }
+  .settings-panel h2{
+    font-size:16px; letter-spacing:5px; color:#fff; text-align:center;
+    margin-bottom:22px; text-shadow:0 0 12px var(--cyan);
+  }
+  .set-row{display:flex; align-items:center; gap:14px; margin-bottom:16px;}
+  .set-row label{flex:0 0 130px; font-size:11px; letter-spacing:1.5px; color:#9df7ee; text-transform:uppercase;}
+  .set-row input[type=range]{flex:1; accent-color:#33fff0; height:4px;}
+  .set-row .val{flex:0 0 46px; text-align:right; font-size:12px; color:#fff;}
+  .set-row select{
+    flex:1; font-family:inherit; font-size:12px; padding:7px 10px;
+    background:rgba(10,14,28,.9); color:#fff; border:1px solid rgba(255,255,255,.25); border-radius:4px;
+  }
+  .set-row .check{display:flex; align-items:center; gap:8px; font-size:12px; color:#cfe9e6;}
+  .set-row input[type=checkbox]{width:16px; height:16px; accent-color:#33fff0;}
+  .set-hint{font-size:11px; color:#6f8f8c; letter-spacing:.5px; margin-top:14px; line-height:1.5;}
+
+  /* ---------- Touch controls ---------- */
+  #touch-ui{position:fixed; inset:0; z-index:15; display:none; pointer-events:none;}
+  #touch-ui.enabled{display:block;}
+  #look-zone{position:absolute; right:0; top:0; width:55%; height:100%; pointer-events:auto;}
+  #stick-zone{
+    position:absolute; left:0; bottom:0; width:44%; height:62%;
+    pointer-events:auto;
+  }
+  #stick-base{
+    position:absolute; left:22px; bottom:110px; width:132px; height:132px;
+    border-radius:50%; border:1px solid rgba(51,255,240,.4);
+    background:rgba(8,14,26,.4); opacity:.65;
+  }
+  #stick-knob{
+    position:absolute; left:50%; top:50%; width:56px; height:56px; margin:-28px 0 0 -28px;
+    border-radius:50%; background:rgba(51,255,240,.35); border:1px solid var(--cyan);
+    box-shadow:0 0 16px rgba(51,255,240,.4);
+  }
+  .tbtn{
+    position:absolute; pointer-events:auto;
+    border-radius:50%; border:1px solid rgba(51,255,240,.5);
+    background:rgba(8,14,26,.5); color:#eafffb;
+    font-size:11px; letter-spacing:1px; font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+    text-shadow:0 0 8px var(--cyan);
+  }
+  #btn-fire{right:28px; bottom:132px; width:96px; height:96px; border-color:var(--red); color:#fff;
+    background:rgba(34,6,13,.82); text-shadow:0 0 8px var(--red); box-shadow:0 0 18px rgba(255,59,78,.3);}
+  #btn-dash{right:136px; bottom:96px; width:64px; height:64px; background:rgba(6,10,22,.86);}
+  .tweapon{
+    right:auto; left:auto; border-radius:6px; width:54px; height:40px; font-size:10px;
+    background:rgba(6,10,22,.86);
+  }
+  #btn-w0{right:30px; bottom:26px;}
+  #btn-w1{right:90px; bottom:26px;}
+  #btn-w2{right:150px; bottom:26px;}
+  .tweapon.active{background:rgba(51,255,240,.25); border-color:var(--cyan); box-shadow:0 0 16px rgba(51,255,240,.5);}
+
+  /* ---------- Petits écrans : le HUD laisse la place aux commandes tactiles ---------- */
+  @media (max-width: 820px), (max-height: 520px) {
+    .bar-wrap{left:14px; bottom:252px; width:134px; gap:6px;}
+    .bar-label{font-size:9px; letter-spacing:1px;}
+    .bar-track{height:11px;}
+    .bar-track.small{height:7px;}
+    #top-right{top:12px; right:12px;}
+    #score{font-size:22px;}
+    #wave-info{font-size:11px; letter-spacing:1px;}
+    #enemies-left{font-size:10px;}
+    #radar{width:108px; height:108px; margin-top:6px;}
+    #mute-indicator{top:14px; left:16px; font-size:10px;}
+    #kill-feed{top:34px; left:16px;}
+    .kill-entry{font-size:10px; padding:2px 6px;}
+    #weapon-slots{display:none;}          /* remplacés par les boutons tactiles */
+    #combo-wrap{top:12px;}
+    #combo-mult{font-size:20px;}
+    #boss-wrap{top:76px; width:60vw;}
+    .tweapon{width:54px; height:42px; font-size:11px;}
+    #btn-w0{right:20px; bottom:248px;}
+    #btn-w1{right:20px; bottom:296px;}
+    #btn-w2{right:20px; bottom:344px;}
+    #btn-fire{right:24px; bottom:118px; width:86px; height:86px;}
+    #btn-dash{right:120px; bottom:116px; width:60px; height:60px;}
+    #stick-base{left:20px; bottom:106px; width:124px; height:124px;}
+    .panel h1{font-size:clamp(28px,9vw,40px); letter-spacing:3px;}
+    .instructions{font-size:11px; gap:6px 12px;}
+  }
+
+  /* ---------- Grand écran tactile : on éloigne le HUD des commandes tactiles ---------- */
+  @media (min-width: 821px) and (min-height: 521px) {
+    body.touch .bar-wrap{bottom:252px;}
+    body.touch #weapon-slots{display:none;}   /* remplacés par les boutons tactiles */
+  }
 </style>
 </head>
 <body>
@@ -187,15 +366,35 @@
       <div class="bar-track"><div class="bar-fill" id="health-fill" style="width:100%"></div></div>
       <div class="bar-label"><span>SURCHAUFFE</span><span id="heat-label">OK</span></div>
       <div class="bar-track"><div class="bar-fill" id="heat-fill" style="width:0%"></div></div>
+      <div class="bar-label"><span>DASH</span><span id="dash-label">PRÊT</span></div>
+      <div class="bar-track small"><div class="bar-fill" id="dash-fill" style="width:100%"></div></div>
     </div>
 
     <div id="top-right">
       <div id="score">0</div>
       <div id="wave-info">VAGUE 1</div>
       <div id="enemies-left">Cibles restantes : 0</div>
+      <canvas id="radar" width="150" height="150"></canvas>
+    </div>
+
+    <div id="weapon-slots">
+      <div class="slot active" id="slot-0"><span class="k">1</span>PULSE</div>
+      <div class="slot" id="slot-1"><span class="k">2</span>SCATTER</div>
+      <div class="slot" id="slot-2"><span class="k">3</span>RAIL</div>
+    </div>
+
+    <div id="combo-wrap">
+      <div id="combo-mult">×1</div>
+      <div id="combo-bar-track"><div id="combo-bar"></div></div>
+    </div>
+
+    <div id="boss-wrap">
+      <div id="boss-name">SENTINELLE</div>
+      <div id="boss-track"><div id="boss-fill"></div></div>
     </div>
 
     <div id="mute-indicator">SON : ON (M)</div>
+    <div id="kill-feed"></div>
 
     <div id="wave-banner">
       <div class="t1">VAGUE SUIVANTE</div>
@@ -207,6 +406,19 @@
   <div id="damage-flash"></div>
   <div class="scanlines"></div>
 
+  <!-- ------- Touch controls ------- -->
+  <div id="touch-ui">
+    <div id="look-zone"></div>
+    <div id="stick-zone">
+      <div id="stick-base"><div id="stick-knob"></div></div>
+    </div>
+    <div class="tbtn" id="btn-fire">TIRER</div>
+    <div class="tbtn" id="btn-dash">DASH</div>
+    <div class="tbtn tweapon active" id="btn-w0">1</div>
+    <div class="tbtn tweapon" id="btn-w1">2</div>
+    <div class="tbtn tweapon" id="btn-w2">3</div>
+  </div>
+
   <div class="overlay" id="start-overlay">
     <div class="panel">
       <h1>NOVA <span>STRIKE</span></h1>
@@ -215,11 +427,16 @@
         <div><b>W A S D</b>se déplacer</div>
         <div><b>SOURIS</b>viser</div>
         <div><b>CLIC</b>tirer</div>
+        <div><b>1 2 3</b>armes</div>
+        <div><b>ESPACE</b>dash</div>
         <div><b>MAJ</b>sprint</div>
         <div><b>ÉCHAP</b>pause</div>
         <div><b>M</b>son</div>
       </div>
-      <button class="cta" id="start-btn">ENTRER DANS L'ARÈNE</button>
+      <div class="btn-row">
+        <button class="cta" id="start-btn">ENTRER DANS L'ARÈNE</button>
+        <button class="cta ghost" id="open-settings-start">RÉGLAGES</button>
+      </div>
     </div>
   </div>
 
@@ -227,7 +444,52 @@
     <div class="panel">
       <h1 style="font-size:38px;">PAUSE</h1>
       <div class="subtitle">L'ARÈNE ATTEND</div>
-      <button class="cta" id="resume-btn">REPRENDRE</button>
+      <div class="btn-row">
+        <button class="cta" id="resume-btn">REPRENDRE</button>
+        <button class="cta ghost" id="open-settings-pause">RÉGLAGES</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="settings-overlay">
+    <div class="settings-panel">
+      <h2>RÉGLAGES</h2>
+      <div class="set-row">
+        <label for="set-sens">Sensibilité</label>
+        <input type="range" id="set-sens" min="0.3" max="3" step="0.1" />
+        <span class="val" id="set-sens-val">1.0</span>
+      </div>
+      <div class="set-row">
+        <label for="set-fov">Champ de vision</label>
+        <input type="range" id="set-fov" min="65" max="100" step="1" />
+        <span class="val" id="set-fov-val">75</span>
+      </div>
+      <div class="set-row">
+        <label for="set-vol">Volume</label>
+        <input type="range" id="set-vol" min="0" max="100" step="5" />
+        <span class="val" id="set-vol-val">70</span>
+      </div>
+      <div class="set-row">
+        <label for="set-quality">Qualité</label>
+        <select id="set-quality">
+          <option value="low">Basse (fluide)</option>
+          <option value="medium">Moyenne</option>
+          <option value="high">Haute</option>
+        </select>
+      </div>
+      <div class="set-row">
+        <label>Affichage</label>
+        <div class="check"><input type="checkbox" id="set-radar" /> <span>Radar tactique</span></div>
+      </div>
+      <div class="set-row">
+        <label>Contrôles</label>
+        <div class="check"><input type="checkbox" id="set-touch" /> <span>Commandes tactiles</span></div>
+      </div>
+      <div class="btn-row">
+        <button class="cta" id="close-settings">FERMER</button>
+        <button class="cta ghost" id="reset-record">EFFACER LE RECORD</button>
+      </div>
+      <div class="set-hint" id="reset-hint">Les réglages sont sauvegardés automatiquement sur cet appareil.</div>
     </div>
   </div>
 
@@ -238,6 +500,10 @@
       <div class="stat-row">
         <div class="stat"><div class="num" id="final-score">0</div><div class="lab">SCORE</div></div>
         <div class="stat"><div class="num" id="final-wave">1</div><div class="lab">VAGUE</div></div>
+        <div class="stat"><div class="num" id="final-kills">0</div><div class="lab">ÉLIMINATIONS</div></div>
+        <div class="stat"><div class="num" id="final-acc">0%</div><div class="lab">PRÉCISION</div></div>
+        <div class="stat"><div class="num" id="final-combo">×1</div><div class="lab">COMBO MAX</div></div>
+        <div class="stat"><div class="num" id="final-time">0s</div><div class="lab">TEMPS</div></div>
         <div class="stat"><div class="num" id="final-best">0</div><div class="lab">RECORD</div></div>
       </div>
       <button class="cta secondary" id="retry-btn">RÉESSAYER</button>
